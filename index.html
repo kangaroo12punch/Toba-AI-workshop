@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>リバーシ</title>
+  <style>
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, 50px);
+      grid-template-rows: repeat(8, 50px);
+      gap: 1px;
+      border: 1px solid #000;
+      width: 408px;
+      height: 408px;
+      margin: 0 auto; /* 中央寄せ */
+    }
+    .cell {
+      background-color: #4CAF50;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    .cell::before {
+      content: "";
+      display: inline-block;
+      vertical-align: middle;
+      height: 0;
+      padding-bottom: 100%;
+    }
+    #scoreboard {
+      margin-top: 20px;
+      text-align: center;
+    }
+    #message {
+      text-align: center;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    #restart-button {
+      display: block;
+      margin: 0 auto; /* 中央寄せ */
+    }
+  </style>
+  <script>
+    const boardSize = 8;
+    let board = [];
+    let currentPlayer = '●';
+    let userFirst = true;
+
+    function initialize() {
+      const boardElement = document.getElementById('board');
+      for (let i = 0; i < boardSize; i++) {
+        board[i] = [];
+        for (let j = 0; j < boardSize; j++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.dataset.row = i;
+          cell.dataset.col = j;
+          cell.addEventListener('click', handleCellClick);
+          boardElement.appendChild(cell);
+          board[i][j] = '';
+        }
+      }
+      
+      // 中央に石を配置する
+      const centerRow = Math.floor(boardSize / 2);
+      const centerCol = Math.floor(boardSize / 2);
+      board[centerRow][centerCol] = '○';
+      board[centerRow][centerCol - 1] = '●';
+      board[centerRow - 1][centerCol] = '●';
+      board[centerRow - 1][centerCol - 1] = '○';
+
+      updateBoard();
+      updateScoreboard();
+
+      if (userFirst) {
+        showMessage('あなたの番です。●の石を置く場所をクリックしてください。');
+      } else {
+        currentPlayer = '○';
+        setTimeout(computerMove, 500);
+      }
+    }
+
+    function isValidMove(row, col) {
+      if (board[row][col] === '') {
+        for (let i = -1; i <= 1; i++) {
+          for (let j = -1; j <= 1; j++) {
+            if (i !== 0 || j !== 0) {
+              let newRow = row + i;
+              let newCol = col + j;
+              if (isValidCell(newRow, newCol) && board[newRow][newCol] !== '' && board[newRow][newCol] !== currentPlayer) {
+                let steps = 1;
+                while (isValidCell(row + i * steps, col + j * steps) && board[row + i * steps][col + j * steps] !== '' && board[row + i * steps][col + j * steps] !== currentPlayer) {
+                  steps++;
+                }
+                if (isValidCell(row + i * steps, col + j * steps) && board[row + i * steps][col + j * steps] === currentPlayer && steps > 1) {
+                  return true;
+                }
+              }
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function isValidCell(row, col) {
+      return row >= 0 && row < boardSize && col >= 0 && col < boardSize;
+    }
+
+    function placePiece(row, col) {
+      board[row][col] = currentPlayer;
+      for (let i = -1; i <= 1; i++) {
+        for (let j = -1; j <= 1; j++) {
+          if (i !== 0 || j !== 0) {
+            let steps = 1;
+            while (isValidCell(row + i * steps, col + j * steps) && board[row + i * steps][col + j * steps] !== '' && board[row + i * steps][col + j * steps] !== currentPlayer) {
+              steps++;
+            }
+            if (isValidCell(row + i * steps, col + j * steps) && board[row + i * steps][col + j * steps] === currentPlayer && steps > 1) {
+              for (let k = 1; k < steps; k++) {
+                board[row + i * k][col + j * k] = currentPlayer;
+              }
+            }
+          }
+        }
+      }
+      updateBoard();
+    }
+
+    function updateBoard() {
+      const boardElement = document.getElementById('board');
+      boardElement.innerHTML = ''; // Clear the board
+      for (let i = 0; i < boardSize; i++) {
+        for (let j = 0; j < boardSize; j++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.dataset.row = i;
+          cell.dataset.col = j;
+          cell.addEventListener('click', handleCellClick);
+          cell.textContent = board[i][j];
+          boardElement.appendChild(cell);
+        }
+      }
+    }
+
+    function computerMove() {
+      let validMoves = [];
+      for (let i = 0; i < boardSize; i++) {
+        for (let j = 0; j < boardSize; j++) {
+          if (isValidMove(i, j)) {
+            validMoves.push({ row: i, col: j });
+          }
+        }
+      }
+      if (validMoves.length > 0) {
+        const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+        placePiece(randomMove.row, randomMove.col);
+        currentPlayer = '●';
+      }
+      if (isGameOver()) {
+        finishGame();
+      }
+      updateScoreboard();
+    }
+
+    function isGameOver() {
+      for (let i = 0; i < boardSize; i++) {
+        for (let j = 0; j < boardSize; j++) {
+          if (isValidMove(i, j)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function finishGame() {
+      const xCount = countPieces('●');
+      const oCount = countPieces('○');
+      let winner = '';
+      if (xCount > oCount) {
+        winner = '●';
+      } else if (oCount > xCount) {
+        winner = '○';
+      } else {
+        winner = '引き分け';
+      }
+      alert('ゲーム終了\n\n●: ' + xCount + '個\n○: ' + oCount + '個\n\n勝者: ' + winner);
+    }
+
+    function countPieces(piece) {
+      let count = 0;
+      for (let i = 0; i < boardSize; i++) {
+        for (let j = 0; j < boardSize; j++) {
+          if (board[i][j] === piece) {
+            count++;
+          }
+        }
+      }
+      return count;
+    }
+
+    function handleCellClick(event) {
+      const row = parseInt(event.target.dataset.row);
+      const col = parseInt(event.target.dataset.col);
+      if (isValidMove(row, col)) {
+        placePiece(row, col);
+        currentPlayer = '○';
+        if (!isGameOver()) {
+          setTimeout(computerMove, 500);
+        } else {
+          finishGame();
+        }
+      } else {
+        showMessage('そこには石を置けません。別の場所を選択してください。');
+      }
+      updateScoreboard();
+    }
+
+    function showMessage(message) {
+      const messageElement = document.getElementById('message');
+      messageElement.textContent = message;
+    }
+
+    function updateScoreboard() {
+      const xCount = countPieces('●');
+      const oCount = countPieces('○');
+      const scoreboardElement = document.getElementById('scoreboard');
+      scoreboardElement.textContent = '●: ' + xCount + '個   ○: ' + oCount + '個';
+    }
+
+    function restartGame() {
+      board = [];
+      currentPlayer = '●';
+      const messageElement = document.getElementById('message');
+      messageElement.textContent = '';
+      initialize();
+    }
+  </script>
+</head>
+<body onload="initialize()">
+  <div id="container" style="display: flex; flex-direction: column; align-items: center;">
+    <div id="board" class="board"></div>
+    <div id="scoreboard"></div>
+    <div id="message"></div>
+    <button onclick="restartGame()">最初からもう一度プレイ</button>
+  </div>
+</body>
+</html>
